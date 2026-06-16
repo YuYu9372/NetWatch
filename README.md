@@ -46,6 +46,7 @@ Edit the constants near the top of `netwatch.py`:
 | `OK_THRESHOLD` | `1` | Consecutive successes before "connected" |
 | `PROBE_HOST` | `1.1.1.1` | Host used to test connectivity |
 | `LATENCY_WARN_MS` | `300` | Connect slower than this → 🟡 high latency |
+| `LATENCY_WARN_COUNT` | `2` | Consecutive slow readings before showing 🟡 |
 | `FLAP_WINDOW` | `60` | Seconds window used to detect flapping |
 | `FLAP_THRESHOLD` | `3` | Transitions within the window → 🟠 unstable |
 
@@ -56,5 +57,6 @@ The alert sound is `assets/ping.mp3`. To change it, replace that file
 
 ## Version
 
+- 1.0.2 — faster disconnect detection; debounce 🟡 so it no longer flashes at cutoff.
 - 1.0.1 — add 🟠 unstable (flapping) and 🟡 high-latency states.
 - 1.0.0 — first release.

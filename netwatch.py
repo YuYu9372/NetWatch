@@ -14,7 +14,7 @@ import time
 import rumps
 
 APP_NAME = "NetWatch"
-VERSION = "1.0.1"
+VERSION = "1.0.2"
 
 ICON_UNKNOWN = "🌐"        # starting up / unknown
 ICON_ONLINE = "🟢"         # connected
