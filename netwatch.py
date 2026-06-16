@@ -29,6 +29,7 @@ PROBE_TIMEOUT = 1           # per-attempt connect timeout (seconds)
 FAIL_THRESHOLD = 2          # consecutive failures before marking offline (debounce)
 OK_THRESHOLD = 1            # consecutive successes before marking online
 LATENCY_WARN_MS = 300       # connect slower than this -> high latency (yellow)
+LATENCY_WARN_COUNT = 2      # consecutive slow readings before showing yellow
 FLAP_WINDOW = 60            # seconds window used to detect flapping
 FLAP_THRESHOLD = 3          # transitions within the window -> unstable (orange)
 
@@ -81,6 +82,7 @@ class NetWatchApp(rumps.App):
         self.muted = False
         self._fail_count = 0
         self._ok_count = 0
+        self._slow_count = 0    # consecutive high-latency readings (for yellow debounce)
         self._transitions = []  # monotonic timestamps of recent online<->offline flips
 
         self.timer = rumps.Timer(self.check, CHECK_INTERVAL)
@@ -93,6 +95,10 @@ class NetWatchApp(rumps.App):
     def check(self, _timer=None):
         """Called on each tick: probe network, apply debounce, update state."""
         ok, self.latency_ms = probe()
+        if ok and self.latency_ms is not None and self.latency_ms > LATENCY_WARN_MS:
+            self._slow_count += 1
+        else:
+            self._slow_count = 0
         if ok:
             self._ok_count += 1
             self._fail_count = 0
@@ -128,9 +134,7 @@ class NetWatchApp(rumps.App):
         flaps = len(self._transitions)
         unstable = flaps >= FLAP_THRESHOLD
 
-        high_latency = (
-            self.latency_ms is not None and self.latency_ms > LATENCY_WARN_MS
-        )
+        high_latency = self._slow_count >= LATENCY_WARN_COUNT
         if self.online is False:
             self.title = ICON_OFFLINE
             status = "Disconnected"
