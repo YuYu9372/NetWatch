@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """NetWatch - a macOS menu bar network drop alert tool.
 
-Version 1.0.0: menu bar icon + periodic connectivity check (with debounce),
+Version 1: menu bar icon + periodic connectivity check (with debounce),
 plays a sound and shows a notification when the connection drops or recovers.
 """
 
@@ -12,14 +12,12 @@ import subprocess
 import rumps
 
 APP_NAME = "NetWatch"
-VERSION = "1.0.0"
+VERSION = "1.0.1"
 
-# Menu bar icons (emoji used as status indicator)
 ICON_UNKNOWN = "🌐"   # starting up / unknown
 ICON_ONLINE = "🟢"    # connected
 ICON_OFFLINE = "🔴"   # disconnected
 
-# --- Detection settings ---
 CHECK_INTERVAL = 5          # seconds between checks
 PROBE_HOST = "1.1.1.1"      # probe target (Cloudflare DNS)
 PROBE_PORT = 53             # DNS port
@@ -27,8 +25,6 @@ PROBE_TIMEOUT = 2           # per-attempt connect timeout (seconds)
 FAIL_THRESHOLD = 2          # consecutive failures before marking offline (debounce)
 OK_THRESHOLD = 1            # consecutive successes before marking online
 
-# --- Sound ---
-# Same ping is used for both drop and recovery (per design).
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 SOUND_PATH = os.path.join(SCRIPT_DIR, "assets", "ping.mp3")
 
@@ -60,19 +56,17 @@ class NetWatchApp(rumps.App):
         self.mute_item = rumps.MenuItem("Mute sound", callback=self.toggle_mute)
         self.menu = [
             self.status_item,
-            None,  # separator
+            None,
             self.mute_item,
             rumps.MenuItem(f"{APP_NAME} v{VERSION}", callback=None),
             rumps.MenuItem("Quit", callback=rumps.quit_application),
         ]
 
-        # State: None = unknown, True = online, False = offline
         self.online = None
         self.muted = False
         self._fail_count = 0
         self._ok_count = 0
 
-        # Timer (runs on the main thread; rumps schedules it)
         self.timer = rumps.Timer(self.check, CHECK_INTERVAL)
         self.timer.start()
 
@@ -105,7 +99,6 @@ class NetWatchApp(rumps.App):
             self.title = ICON_OFFLINE
             self.status_item.title = "Status: Disconnected"
 
-        # Only alert on a real change (not on the first reading at startup).
         if was is None:
             return
 
