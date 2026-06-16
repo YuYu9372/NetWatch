@@ -99,18 +99,12 @@ class NetWatchApp(rumps.App):
             self._ok_count = 0
             if self.online is not False and self._fail_count >= FAIL_THRESHOLD:
                 self.set_online(False)
+        self.update_display()
 
     def set_online(self, online):
-        """Switch state, update display, and alert on a real transition."""
+        """Update connectivity state and alert on a real transition."""
         was = self.online
         self.online = online
-
-        if online:
-            self.title = ICON_ONLINE
-            self.status_item.title = "Status: Connected"
-        else:
-            self.title = ICON_OFFLINE
-            self.status_item.title = "Status: Disconnected"
 
         if was is None:
             return
@@ -119,6 +113,25 @@ class NetWatchApp(rumps.App):
             self.alert("Network restored", "You are back online.")
         else:
             self.alert("Network disconnected", "Your connection just dropped.")
+
+    def update_display(self):
+        """Pick the menu bar icon + status text by precedence."""
+        high_latency = (
+            self.latency_ms is not None and self.latency_ms > LATENCY_WARN_MS
+        )
+        if self.online is False:
+            self.title = ICON_OFFLINE
+            status = "Disconnected"
+        elif high_latency:
+            self.title = ICON_HIGH_LATENCY
+            status = f"High latency ({int(self.latency_ms)} ms)"
+        elif self.online:
+            self.title = ICON_ONLINE
+            status = "Connected"
+        else:
+            self.title = ICON_UNKNOWN
+            status = "starting…"
+        self.status_item.title = f"Status: {status}"
 
     def alert(self, title, message):
         """Play sound + show a notification for a status change."""
