@@ -14,9 +14,11 @@ import rumps
 APP_NAME = "NetWatch"
 VERSION = "1.0.1"
 
-ICON_UNKNOWN = "🌐"   # starting up / unknown
-ICON_ONLINE = "🟢"    # connected
-ICON_OFFLINE = "🔴"   # disconnected
+ICON_UNKNOWN = "🌐"        # starting up / unknown
+ICON_ONLINE = "🟢"         # connected
+ICON_OFFLINE = "🔴"        # disconnected
+ICON_UNSTABLE = "🟠"       # connection keeps flapping
+ICON_HIGH_LATENCY = "🟡"   # connected but slow
 
 CHECK_INTERVAL = 5          # seconds between checks
 PROBE_HOST = "1.1.1.1"      # probe target (Cloudflare DNS)
@@ -24,6 +26,9 @@ PROBE_PORT = 53             # DNS port
 PROBE_TIMEOUT = 2           # per-attempt connect timeout (seconds)
 FAIL_THRESHOLD = 2          # consecutive failures before marking offline (debounce)
 OK_THRESHOLD = 1            # consecutive successes before marking online
+LATENCY_WARN_MS = 300       # connect slower than this -> high latency (yellow)
+FLAP_WINDOW = 60            # seconds window used to detect flapping
+FLAP_THRESHOLD = 3          # transitions within the window -> unstable (orange)
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 SOUND_PATH = os.path.join(SCRIPT_DIR, "assets", "ping.mp3")
