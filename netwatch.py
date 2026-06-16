@@ -78,6 +78,7 @@ class NetWatchApp(rumps.App):
         self.muted = False
         self._fail_count = 0
         self._ok_count = 0
+        self._transitions = []  # monotonic timestamps of recent online<->offline flips
 
         self.timer = rumps.Timer(self.check, CHECK_INTERVAL)
         self.timer.start()
@@ -108,6 +109,9 @@ class NetWatchApp(rumps.App):
 
         if was is None:
             return
+
+        # Record this real transition for flapping detection.
+        self._transitions.append(time.monotonic())
 
         if online:
             self.alert("Network restored", "You are back online.")
