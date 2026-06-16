@@ -22,10 +22,10 @@ ICON_OFFLINE = "🔴"        # disconnected
 ICON_UNSTABLE = "🟠"       # connection keeps flapping
 ICON_HIGH_LATENCY = "🟡"   # connected but slow
 
-CHECK_INTERVAL = 5          # seconds between checks
+CHECK_INTERVAL = 2          # seconds between checks
 PROBE_HOST = "1.1.1.1"      # probe target (Cloudflare DNS)
 PROBE_PORT = 53             # DNS port
-PROBE_TIMEOUT = 2           # per-attempt connect timeout (seconds)
+PROBE_TIMEOUT = 1           # per-attempt connect timeout (seconds)
 FAIL_THRESHOLD = 2          # consecutive failures before marking offline (debounce)
 OK_THRESHOLD = 1            # consecutive successes before marking online
 LATENCY_WARN_MS = 300       # connect slower than this -> high latency (yellow)
