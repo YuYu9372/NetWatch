@@ -8,6 +8,7 @@ plays a sound and shows a notification when the connection drops or recovers.
 import os
 import socket
 import subprocess
+import time
 
 import rumps
 
@@ -34,14 +35,19 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 SOUND_PATH = os.path.join(SCRIPT_DIR, "assets", "ping.mp3")
 
 
-def is_connected():
-    """Try to open a TCP connection to PROBE_HOST; success means online."""
+def probe():
+    """Try to open a TCP connection to PROBE_HOST.
+
+    Returns (ok, latency_ms). latency_ms is the connect time in ms when ok,
+    or None on failure.
+    """
+    start = time.monotonic()
     try:
         sock = socket.create_connection((PROBE_HOST, PROBE_PORT), PROBE_TIMEOUT)
         sock.close()
-        return True
+        return True, (time.monotonic() - start) * 1000
     except OSError:
-        return False
+        return False, None
 
 
 def play_sound():
@@ -68,6 +74,7 @@ class NetWatchApp(rumps.App):
         ]
 
         self.online = None
+        self.latency_ms = None
         self.muted = False
         self._fail_count = 0
         self._ok_count = 0
@@ -81,7 +88,8 @@ class NetWatchApp(rumps.App):
 
     def check(self, _timer=None):
         """Called on each tick: probe network, apply debounce, update state."""
-        if is_connected():
+        ok, self.latency_ms = probe()
+        if ok:
             self._ok_count += 1
             self._fail_count = 0
             if self.online is not True and self._ok_count >= OK_THRESHOLD:
