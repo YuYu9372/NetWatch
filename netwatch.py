@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """NetWatch - a macOS menu bar network drop alert tool.
 
-Version 1: menu bar icon + periodic connectivity check (with debounce),
-plays a sound and shows a notification when the connection drops or recovers.
+menu bar icon + periodic connectivity check (with debounce), plays a sound and
+shows a notification when the connection drops or recovers. Also shows 🟠 when
+the connection keeps flapping and 🟡 when latency is high (visual only).
 """
 
 import os
