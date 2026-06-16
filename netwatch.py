@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 """NetWatch - a macOS menu bar network drop alert tool.
 
-Version 1.0.0: menu bar icon + periodic connectivity check (with debounce).
-Sound and notifications are added in a later chunk.
+Version 1.0.0: menu bar icon + periodic connectivity check (with debounce),
+plays a sound and shows a notification when the connection drops or recovers.
 """
 
+import os
 import socket
+import subprocess
 
 import rumps
 
@@ -25,6 +27,11 @@ PROBE_TIMEOUT = 2           # per-attempt connect timeout (seconds)
 FAIL_THRESHOLD = 2          # consecutive failures before marking offline (debounce)
 OK_THRESHOLD = 1            # consecutive successes before marking online
 
+# --- Sound ---
+# Same ping is used for both drop and recovery (per design).
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+SOUND_PATH = os.path.join(SCRIPT_DIR, "assets", "ping.mp3")
+
 
 def is_connected():
     """Try to open a TCP connection to PROBE_HOST; success means online."""
@@ -36,25 +43,42 @@ def is_connected():
         return False
 
 
+def play_sound():
+    """Play the ping sound asynchronously via macOS `afplay`."""
+    if not os.path.exists(SOUND_PATH):
+        return
+    try:
+        subprocess.Popen(["afplay", SOUND_PATH])
+    except OSError:
+        pass
+
+
 class NetWatchApp(rumps.App):
     def __init__(self):
         super().__init__(APP_NAME, title=ICON_UNKNOWN, quit_button=None)
         self.status_item = rumps.MenuItem("Status: starting…")
+        self.mute_item = rumps.MenuItem("Mute sound", callback=self.toggle_mute)
         self.menu = [
             self.status_item,
             None,  # separator
+            self.mute_item,
             rumps.MenuItem(f"{APP_NAME} v{VERSION}", callback=None),
             rumps.MenuItem("Quit", callback=rumps.quit_application),
         ]
 
         # State: None = unknown, True = online, False = offline
         self.online = None
+        self.muted = False
         self._fail_count = 0
         self._ok_count = 0
 
         # Timer (runs on the main thread; rumps schedules it)
         self.timer = rumps.Timer(self.check, CHECK_INTERVAL)
         self.timer.start()
+
+    def toggle_mute(self, sender):
+        self.muted = not self.muted
+        sender.state = 1 if self.muted else 0
 
     def check(self, _timer=None):
         """Called on each tick: probe network, apply debounce, update state."""
@@ -70,14 +94,34 @@ class NetWatchApp(rumps.App):
                 self.set_online(False)
 
     def set_online(self, online):
-        """Switch state and update the menu bar display."""
+        """Switch state, update display, and alert on a real transition."""
+        was = self.online
         self.online = online
+
         if online:
             self.title = ICON_ONLINE
             self.status_item.title = "Status: Connected"
         else:
             self.title = ICON_OFFLINE
             self.status_item.title = "Status: Disconnected"
+
+        # Only alert on a real change (not on the first reading at startup).
+        if was is None:
+            return
+
+        if online:
+            self.alert("Network restored", "You are back online.")
+        else:
+            self.alert("Network disconnected", "Your connection just dropped.")
+
+    def alert(self, title, message):
+        """Play sound + show a notification for a status change."""
+        if not self.muted:
+            play_sound()
+        try:
+            rumps.notification(APP_NAME, title, message)
+        except Exception:
+            pass
 
 
 if __name__ == "__main__":
