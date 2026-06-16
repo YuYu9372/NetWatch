@@ -120,12 +120,20 @@ class NetWatchApp(rumps.App):
 
     def update_display(self):
         """Pick the menu bar icon + status text by precedence."""
+        now = time.monotonic()
+        self._transitions = [t for t in self._transitions if now - t <= FLAP_WINDOW]
+        flaps = len(self._transitions)
+        unstable = flaps >= FLAP_THRESHOLD
+
         high_latency = (
             self.latency_ms is not None and self.latency_ms > LATENCY_WARN_MS
         )
         if self.online is False:
             self.title = ICON_OFFLINE
             status = "Disconnected"
+        elif unstable:
+            self.title = ICON_UNSTABLE
+            status = f"Unstable ({flaps} flaps/min)"
         elif high_latency:
             self.title = ICON_HIGH_LATENCY
             status = f"High latency ({int(self.latency_ms)} ms)"
