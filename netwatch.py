@@ -4,6 +4,8 @@
 menu bar icon + periodic connectivity check (with debounce), plays a sound and
 shows a notification when the connection drops or recovers. Also shows 🟠 when
 the connection keeps flapping and 🟡 when latency is high (visual only).
+Probes several targets for reliability, reports how long each outage lasted,
+and logs every drop/recovery to ~/Library/Logs/NetWatch.log.
 """
 
 import os
@@ -15,7 +17,7 @@ from datetime import datetime
 import rumps
 
 APP_NAME = "NetWatch"
-VERSION = "1.0.2"
+VERSION = "1.1.0"
 
 ICON_UNKNOWN = "🌐"        # starting up / unknown
 ICON_ONLINE = "🟢"         # connected
