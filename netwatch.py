@@ -10,6 +10,7 @@ import os
 import socket
 import subprocess
 import time
+from datetime import datetime
 
 import rumps
 
@@ -38,6 +39,18 @@ FLAP_THRESHOLD = 3          # transitions within the window -> unstable (orange)
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 SOUND_PATH = os.path.join(SCRIPT_DIR, "assets", "ping.mp3")
+LOG_PATH = os.path.expanduser("~/Library/Logs/NetWatch.log")
+
+
+def log_event(message):
+    """Append a timestamped line to the outage log (best effort)."""
+    ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    try:
+        os.makedirs(os.path.dirname(LOG_PATH), exist_ok=True)
+        with open(LOG_PATH, "a") as f:
+            f.write(f"{ts}  {message}\n")
+    except OSError:
+        pass
 
 
 def probe():
@@ -155,9 +168,11 @@ class NetWatchApp(rumps.App):
             message = "You are back online."
             if duration is not None:
                 message = f"Offline for {format_duration(duration)}."
+            log_event(f"RECONNECTED ({message})")
             self.alert("Network restored", message)
         else:
             self._offline_since = time.monotonic()
+            log_event("DISCONNECTED")
             self.alert("Network disconnected", "Your connection just dropped.")
 
     def update_display(self):
