@@ -105,6 +105,7 @@ class NetWatchApp(rumps.App):
             self.last_outage_item,
             None,
             self.mute_item,
+            rumps.MenuItem("Open log", callback=self.open_log),
             rumps.MenuItem(f"{APP_NAME} v{VERSION}", callback=None),
             rumps.MenuItem("Quit", callback=rumps.quit_application),
         ]
@@ -125,6 +126,15 @@ class NetWatchApp(rumps.App):
     def toggle_mute(self, sender):
         self.muted = not self.muted
         sender.state = 1 if self.muted else 0
+
+    def open_log(self, _sender):
+        """Open the outage log in the default app (create it if needed)."""
+        if not os.path.exists(LOG_PATH):
+            log_event("(log created)")
+        try:
+            subprocess.Popen(["open", LOG_PATH])
+        except OSError:
+            pass
 
     def check(self, _timer=None):
         """Called on each tick: probe network, apply debounce, update state."""
