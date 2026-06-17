@@ -1,46 +1,87 @@
 #!/usr/bin/env python3
 """NetWatch - a macOS menu bar network drop alert tool.
 
-Version 1.0.0: menu bar icon + periodic connectivity check (with debounce),
-plays a sound and shows a notification when the connection drops or recovers.
+menu bar icon + periodic connectivity check (with debounce), plays a sound and
+shows a notification when the connection drops or recovers. Also shows 🟠 when
+the connection keeps flapping and 🟡 when latency is high (visual only).
+Probes several targets for reliability, reports how long each outage lasted,
+and logs every drop/recovery to ~/Library/Logs/NetWatch.log.
 """
 
 import os
 import socket
 import subprocess
+import time
+from datetime import datetime
 
 import rumps
 
 APP_NAME = "NetWatch"
-VERSION = "1.0.0"
+VERSION = "1.1.0"
 
-# Menu bar icons (emoji used as status indicator)
-ICON_UNKNOWN = "🌐"   # starting up / unknown
-ICON_ONLINE = "🟢"    # connected
-ICON_OFFLINE = "🔴"   # disconnected
+ICON_UNKNOWN = "🌐"        # starting up / unknown
+ICON_ONLINE = "🟢"         # connected
+ICON_OFFLINE = "🔴"        # disconnected
+ICON_UNSTABLE = "🟠"       # connection keeps flapping
+ICON_HIGH_LATENCY = "🟡"   # connected but slow
 
-# --- Detection settings ---
-CHECK_INTERVAL = 5          # seconds between checks
-PROBE_HOST = "1.1.1.1"      # probe target (Cloudflare DNS)
-PROBE_PORT = 53             # DNS port
-PROBE_TIMEOUT = 2           # per-attempt connect timeout (seconds)
+CHECK_INTERVAL = 2          # seconds between checks
+PROBE_TARGETS = [           # probe these in order; offline only if ALL fail
+    ("1.1.1.1", 53),        # Cloudflare DNS
+    ("8.8.8.8", 53),        # Google DNS
+    ("9.9.9.9", 53),        # Quad9 DNS
+]
+PROBE_TIMEOUT = 1           # per-attempt connect timeout (seconds)
 FAIL_THRESHOLD = 2          # consecutive failures before marking offline (debounce)
 OK_THRESHOLD = 1            # consecutive successes before marking online
+LATENCY_WARN_MS = 300       # connect slower than this -> high latency (yellow)
+LATENCY_WARN_COUNT = 2      # consecutive slow readings before showing yellow
+FLAP_WINDOW = 60            # seconds window used to detect flapping
+FLAP_THRESHOLD = 3          # transitions within the window -> unstable (orange)
 
-# --- Sound ---
-# Same ping is used for both drop and recovery (per design).
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 SOUND_PATH = os.path.join(SCRIPT_DIR, "assets", "ping.mp3")
+LOG_PATH = os.path.expanduser("~/Library/Logs/NetWatch.log")
 
 
-def is_connected():
-    """Try to open a TCP connection to PROBE_HOST; success means online."""
+def log_event(message):
+    """Append a timestamped line to the outage log (best effort)."""
+    ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     try:
-        sock = socket.create_connection((PROBE_HOST, PROBE_PORT), PROBE_TIMEOUT)
-        sock.close()
-        return True
+        os.makedirs(os.path.dirname(LOG_PATH), exist_ok=True)
+        with open(LOG_PATH, "a") as f:
+            f.write(f"{ts}  {message}\n")
     except OSError:
-        return False
+        pass
+
+
+def probe():
+    """Try each target in PROBE_TARGETS until one connects.
+
+    Returns (ok, latency_ms). Online (and latency) is reported from the first
+    target that responds; only when every target fails is it considered offline.
+    """
+    for host, port in PROBE_TARGETS:
+        start = time.monotonic()
+        try:
+            sock = socket.create_connection((host, port), PROBE_TIMEOUT)
+            sock.close()
+            return True, (time.monotonic() - start) * 1000
+        except OSError:
+            continue
+    return False, None
+
+
+def format_duration(seconds):
+    """Human-readable duration like '5s', '2m 13s', '1h 4m'."""
+    seconds = int(round(seconds))
+    if seconds < 60:
+        return f"{seconds}s"
+    m, s = divmod(seconds, 60)
+    if m < 60:
+        return f"{m}m {s}s"
+    h, m = divmod(m, 60)
+    return f"{h}h {m}m"
 
 
 def play_sound():
@@ -57,22 +98,30 @@ class NetWatchApp(rumps.App):
     def __init__(self):
         super().__init__(APP_NAME, title=ICON_UNKNOWN, quit_button=None)
         self.status_item = rumps.MenuItem("Status: starting…")
+        self.latency_item = rumps.MenuItem("Latency: —")
+        self.last_outage_item = rumps.MenuItem("Last outage: —")
         self.mute_item = rumps.MenuItem("Mute sound", callback=self.toggle_mute)
         self.menu = [
             self.status_item,
-            None,  # separator
+            self.latency_item,
+            self.last_outage_item,
+            None,
             self.mute_item,
+            rumps.MenuItem("Open log", callback=self.open_log),
             rumps.MenuItem(f"{APP_NAME} v{VERSION}", callback=None),
             rumps.MenuItem("Quit", callback=rumps.quit_application),
         ]
 
-        # State: None = unknown, True = online, False = offline
         self.online = None
+        self.latency_ms = None
         self.muted = False
         self._fail_count = 0
         self._ok_count = 0
+        self._slow_count = 0    # consecutive high-latency readings (for yellow debounce)
+        self._transitions = []  # monotonic timestamps of recent online<->offline flips
+        self._offline_since = None  # monotonic time the current outage began
+        self.last_outage = None     # duration (seconds) of the most recent outage
 
-        # Timer (runs on the main thread; rumps schedules it)
         self.timer = rumps.Timer(self.check, CHECK_INTERVAL)
         self.timer.start()
 
@@ -80,9 +129,23 @@ class NetWatchApp(rumps.App):
         self.muted = not self.muted
         sender.state = 1 if self.muted else 0
 
+    def open_log(self, _sender):
+        """Open the outage log in the default app (create it if needed)."""
+        if not os.path.exists(LOG_PATH):
+            log_event("(log created)")
+        try:
+            subprocess.Popen(["open", LOG_PATH])
+        except OSError:
+            pass
+
     def check(self, _timer=None):
         """Called on each tick: probe network, apply debounce, update state."""
-        if is_connected():
+        ok, self.latency_ms = probe()
+        if ok and self.latency_ms is not None and self.latency_ms > LATENCY_WARN_MS:
+            self._slow_count += 1
+        else:
+            self._slow_count = 0
+        if ok:
             self._ok_count += 1
             self._fail_count = 0
             if self.online is not True and self._ok_count >= OK_THRESHOLD:
@@ -92,27 +155,70 @@ class NetWatchApp(rumps.App):
             self._ok_count = 0
             if self.online is not False and self._fail_count >= FAIL_THRESHOLD:
                 self.set_online(False)
+        self.update_display()
 
     def set_online(self, online):
-        """Switch state, update display, and alert on a real transition."""
+        """Update connectivity state and alert on a real transition."""
         was = self.online
         self.online = online
 
-        if online:
-            self.title = ICON_ONLINE
-            self.status_item.title = "Status: Connected"
-        else:
-            self.title = ICON_OFFLINE
-            self.status_item.title = "Status: Disconnected"
-
-        # Only alert on a real change (not on the first reading at startup).
         if was is None:
+            # First reading: no alert, but start the clock if we boot offline.
+            if online is False:
+                self._offline_since = time.monotonic()
             return
 
+        # Record this real transition for flapping detection.
+        self._transitions.append(time.monotonic())
+
         if online:
-            self.alert("Network restored", "You are back online.")
+            duration = None
+            if self._offline_since is not None:
+                duration = time.monotonic() - self._offline_since
+                self.last_outage = duration
+                self._offline_since = None
+            message = "You are back online."
+            if duration is not None:
+                message = f"Offline for {format_duration(duration)}."
+            log_event(f"RECONNECTED ({message})")
+            self.alert("Network restored", message)
         else:
+            self._offline_since = time.monotonic()
+            log_event("DISCONNECTED")
             self.alert("Network disconnected", "Your connection just dropped.")
+
+    def update_display(self):
+        """Pick the menu bar icon + status text by precedence."""
+        now = time.monotonic()
+        self._transitions = [t for t in self._transitions if now - t <= FLAP_WINDOW]
+        flaps = len(self._transitions)
+        unstable = flaps >= FLAP_THRESHOLD
+
+        high_latency = self._slow_count >= LATENCY_WARN_COUNT
+        if self.online is False:
+            self.title = ICON_OFFLINE
+            status = "Disconnected"
+        elif unstable:
+            self.title = ICON_UNSTABLE
+            status = f"Unstable ({flaps} flaps/min)"
+        elif high_latency:
+            self.title = ICON_HIGH_LATENCY
+            status = f"High latency ({int(self.latency_ms)} ms)"
+        elif self.online:
+            self.title = ICON_ONLINE
+            status = "Connected"
+        else:
+            self.title = ICON_UNKNOWN
+            status = "starting…"
+        self.status_item.title = f"Status: {status}"
+        if self.latency_ms is None:
+            self.latency_item.title = "Latency: —"
+        else:
+            self.latency_item.title = f"Latency: {int(self.latency_ms)} ms"
+        if self.last_outage is None:
+            self.last_outage_item.title = "Last outage: —"
+        else:
+            self.last_outage_item.title = f"Last outage: {format_duration(self.last_outage)}"
 
     def alert(self, title, message):
         """Play sound + show a notification for a status change."""
