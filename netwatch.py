@@ -57,6 +57,18 @@ def probe():
     return False, None
 
 
+def format_duration(seconds):
+    """Human-readable duration like '5s', '2m 13s', '1h 4m'."""
+    seconds = int(round(seconds))
+    if seconds < 60:
+        return f"{seconds}s"
+    m, s = divmod(seconds, 60)
+    if m < 60:
+        return f"{m}m {s}s"
+    h, m = divmod(m, 60)
+    return f"{h}h {m}m"
+
+
 def play_sound():
     """Play the ping sound asynchronously via macOS `afplay`."""
     if not os.path.exists(SOUND_PATH):
@@ -89,6 +101,8 @@ class NetWatchApp(rumps.App):
         self._ok_count = 0
         self._slow_count = 0    # consecutive high-latency readings (for yellow debounce)
         self._transitions = []  # monotonic timestamps of recent online<->offline flips
+        self._offline_since = None  # monotonic time the current outage began
+        self.last_outage = None     # duration (seconds) of the most recent outage
 
         self.timer = rumps.Timer(self.check, CHECK_INTERVAL)
         self.timer.start()
@@ -122,14 +136,26 @@ class NetWatchApp(rumps.App):
         self.online = online
 
         if was is None:
+            # First reading: no alert, but start the clock if we boot offline.
+            if online is False:
+                self._offline_since = time.monotonic()
             return
 
         # Record this real transition for flapping detection.
         self._transitions.append(time.monotonic())
 
         if online:
-            self.alert("Network restored", "You are back online.")
+            duration = None
+            if self._offline_since is not None:
+                duration = time.monotonic() - self._offline_since
+                self.last_outage = duration
+                self._offline_since = None
+            message = "You are back online."
+            if duration is not None:
+                message = f"Offline for {format_duration(duration)}."
+            self.alert("Network restored", message)
         else:
+            self._offline_since = time.monotonic()
             self.alert("Network disconnected", "Your connection just dropped.")
 
     def update_display(self):
