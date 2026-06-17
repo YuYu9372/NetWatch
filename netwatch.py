@@ -84,10 +84,12 @@ class NetWatchApp(rumps.App):
         super().__init__(APP_NAME, title=ICON_UNKNOWN, quit_button=None)
         self.status_item = rumps.MenuItem("Status: starting…")
         self.latency_item = rumps.MenuItem("Latency: —")
+        self.last_outage_item = rumps.MenuItem("Last outage: —")
         self.mute_item = rumps.MenuItem("Mute sound", callback=self.toggle_mute)
         self.menu = [
             self.status_item,
             self.latency_item,
+            self.last_outage_item,
             None,
             self.mute_item,
             rumps.MenuItem(f"{APP_NAME} v{VERSION}", callback=None),
@@ -186,6 +188,10 @@ class NetWatchApp(rumps.App):
             self.latency_item.title = "Latency: —"
         else:
             self.latency_item.title = f"Latency: {int(self.latency_ms)} ms"
+        if self.last_outage is None:
+            self.last_outage_item.title = "Last outage: —"
+        else:
+            self.last_outage_item.title = f"Last outage: {format_duration(self.last_outage)}"
 
     def alert(self, title, message):
         """Play sound + show a notification for a status change."""
