@@ -23,8 +23,11 @@ ICON_UNSTABLE = "🟠"       # connection keeps flapping
 ICON_HIGH_LATENCY = "🟡"   # connected but slow
 
 CHECK_INTERVAL = 2          # seconds between checks
-PROBE_HOST = "1.1.1.1"      # probe target (Cloudflare DNS)
-PROBE_PORT = 53             # DNS port
+PROBE_TARGETS = [           # probe these in order; offline only if ALL fail
+    ("1.1.1.1", 53),        # Cloudflare DNS
+    ("8.8.8.8", 53),        # Google DNS
+    ("9.9.9.9", 53),        # Quad9 DNS
+]
 PROBE_TIMEOUT = 1           # per-attempt connect timeout (seconds)
 FAIL_THRESHOLD = 2          # consecutive failures before marking offline (debounce)
 OK_THRESHOLD = 1            # consecutive successes before marking online
@@ -38,18 +41,20 @@ SOUND_PATH = os.path.join(SCRIPT_DIR, "assets", "ping.mp3")
 
 
 def probe():
-    """Try to open a TCP connection to PROBE_HOST.
+    """Try each target in PROBE_TARGETS until one connects.
 
-    Returns (ok, latency_ms). latency_ms is the connect time in ms when ok,
-    or None on failure.
+    Returns (ok, latency_ms). Online (and latency) is reported from the first
+    target that responds; only when every target fails is it considered offline.
     """
-    start = time.monotonic()
-    try:
-        sock = socket.create_connection((PROBE_HOST, PROBE_PORT), PROBE_TIMEOUT)
-        sock.close()
-        return True, (time.monotonic() - start) * 1000
-    except OSError:
-        return False, None
+    for host, port in PROBE_TARGETS:
+        start = time.monotonic()
+        try:
+            sock = socket.create_connection((host, port), PROBE_TIMEOUT)
+            sock.close()
+            return True, (time.monotonic() - start) * 1000
+        except OSError:
+            continue
+    return False, None
 
 
 def play_sound():
