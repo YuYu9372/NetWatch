@@ -1,49 +1,34 @@
 #!/usr/bin/env python3
-"""NetWatch - a macOS menu bar network drop alert tool.
-
-menu bar icon + periodic connectivity check (with debounce), plays a sound and
-shows a notification when the connection drops or recovers. Also shows 🟠 when
-the connection keeps flapping and 🟡 when latency is high (visual only).
-Probes several targets for reliability, reports how long each outage lasted,
-and logs every drop/recovery to ~/Library/Logs/NetWatch.log.
-"""
-
 import os
 import socket
 import subprocess
 import time
-from datetime import datetime
-
 import rumps
+from datetime import datetime
 
 APP_NAME = "NetWatch"
 VERSION = "1.1.0"
-
-ICON_UNKNOWN = "🌐"        # starting up / unknown
-ICON_ONLINE = "🟢"         # connected
-ICON_OFFLINE = "🔴"        # disconnected
-ICON_UNSTABLE = "🟠"       # connection keeps flapping
-ICON_HIGH_LATENCY = "🟡"   # connected but slow
-
-CHECK_INTERVAL = 2          # seconds between checks
-PROBE_TARGETS = [           # probe these in order; offline only if ALL fail
-    ("1.1.1.1", 53),        # Cloudflare DNS
-    ("8.8.8.8", 53),        # Google DNS
-    ("9.9.9.9", 53),        # Quad9 DNS
+ICON_UNKNOWN = "🌐"        
+ICON_ONLINE = "🟢"       
+ICON_OFFLINE = "🔴"       
+ICON_UNSTABLE = "🟠"      
+ICON_HIGH_LATENCY = "🟡"  
+CHECK_INTERVAL = 2     
+PROBE_TARGETS = [           
+    ("1.1.1.1", 53),       
+    ("8.8.8.8", 53),        
+    ("9.9.9.9", 53),       
 ]
-PROBE_TIMEOUT = 1           # per-attempt connect timeout (seconds)
-FAIL_THRESHOLD = 2          # consecutive failures before marking offline (debounce)
-OK_THRESHOLD = 1            # consecutive successes before marking online
-LATENCY_WARN_MS = 300       # connect slower than this -> high latency (yellow)
-LATENCY_WARN_COUNT = 2      # consecutive slow readings before showing yellow
-FLAP_WINDOW = 60            # seconds window used to detect flapping
-FLAP_THRESHOLD = 3          # transitions within the window -> unstable (orange)
-
+PROBE_TIMEOUT = 1           
+FAIL_THRESHOLD = 2          
+OK_THRESHOLD = 1           
+LATENCY_WARN_MS = 300      
+LATENCY_WARN_COUNT = 2     
+FLAP_WINDOW = 60          
+FLAP_THRESHOLD = 3        
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 SOUND_PATH = os.path.join(SCRIPT_DIR, "assets", "ping.mp3")
 LOG_PATH = os.path.expanduser("~/Library/Logs/NetWatch.log")
-
-
 def log_event(message):
     """Append a timestamped line to the outage log (best effort)."""
     ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -111,24 +96,20 @@ class NetWatchApp(rumps.App):
             rumps.MenuItem(f"{APP_NAME} v{VERSION}", callback=None),
             rumps.MenuItem("Quit", callback=rumps.quit_application),
         ]
-
         self.online = None
         self.latency_ms = None
         self.muted = False
         self._fail_count = 0
         self._ok_count = 0
-        self._slow_count = 0    # consecutive high-latency readings (for yellow debounce)
-        self._transitions = []  # monotonic timestamps of recent online<->offline flips
-        self._offline_since = None  # monotonic time the current outage began
-        self.last_outage = None     # duration (seconds) of the most recent outage
-
+        self._slow_count = 0    
+        self._transitions = []
+        self._offline_since = None 
+        self.last_outage = None   
         self.timer = rumps.Timer(self.check, CHECK_INTERVAL)
         self.timer.start()
-
     def toggle_mute(self, sender):
         self.muted = not self.muted
         sender.state = 1 if self.muted else 0
-
     def open_log(self, _sender):
         """Open the outage log in the default app (create it if needed)."""
         if not os.path.exists(LOG_PATH):
@@ -137,7 +118,6 @@ class NetWatchApp(rumps.App):
             subprocess.Popen(["open", LOG_PATH])
         except OSError:
             pass
-
     def check(self, _timer=None):
         """Called on each tick: probe network, apply debounce, update state."""
         ok, self.latency_ms = probe()
@@ -163,12 +143,10 @@ class NetWatchApp(rumps.App):
         self.online = online
 
         if was is None:
-            # First reading: no alert, but start the clock if we boot offline.
             if online is False:
                 self._offline_since = time.monotonic()
             return
 
-        # Record this real transition for flapping detection.
         self._transitions.append(time.monotonic())
 
         if online:
@@ -228,7 +206,5 @@ class NetWatchApp(rumps.App):
             rumps.notification(APP_NAME, title, message)
         except Exception:
             pass
-
-
 if __name__ == "__main__":
     NetWatchApp().run()
