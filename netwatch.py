@@ -10,14 +10,14 @@ APP_NAME = "NetWatch"
 VERSION = "1.1.1"
 ICON_UNKNOWN = "🌐"        
 ICON_ONLINE = "🟢"       
-ICON_OFFLINE = "🔴"       
+ICON_OFFLINE = "⚠️"       
 ICON_UNSTABLE = "🟠"      
 ICON_HIGH_LATENCY = "🟡"  
 CHECK_INTERVAL = 1     
 PROBE_TARGETS = [           
-    ("1.1.1.1", 53),       
-    ("8.8.8.8", 53),        
-    ("9.9.9.9", 53),       
+    ("1.1.1.1", 53),    #Cloudflare's DNS       
+    ("8.8.8.8", 53),    #Google's DNS    
+    ("9.9.9.9", 53),    #Quad9's DNS   
 ]
 PROBE_TIMEOUT = 1           
 FAIL_THRESHOLD = 2          
@@ -93,6 +93,7 @@ class NetWatchApp(rumps.App):
             None,
             self.mute_item,
             rumps.MenuItem("Open log", callback=self.open_log),
+            rumps.MenuItem("Clear log", callback=self.clear_log),
             rumps.MenuItem(f"{APP_NAME} v{VERSION}", callback=None),
             rumps.MenuItem("Quit", callback=rumps.quit_application),
         ]
@@ -118,6 +119,16 @@ class NetWatchApp(rumps.App):
             subprocess.Popen(["open", LOG_PATH])
         except OSError:
             pass
+    def clear_log(self, _sender):
+        """Delete the log file if it exists to clear the history."""
+        try:
+            if os.path.exists(LOG_PATH):
+                os.remove(LOG_PATH)  
+                rumps.notification(APP_NAME, "Log cleared", "The network log history has been wiped.")
+            else:
+                rumps.notification(APP_NAME, "Log empty", "There is no log file to clear.")
+        except OSError:
+            rumps.notification(APP_NAME, "Error", "Could not clear the log file.")
     def check(self, _timer=None):
         """Called on each tick: probe network, apply debounce, update state."""
         ok, self.latency_ms = probe()
