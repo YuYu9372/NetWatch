@@ -13,7 +13,7 @@ ICON_ONLINE = "🟢"
 ICON_OFFLINE = "🔴"       
 ICON_UNSTABLE = "🟠"      
 ICON_HIGH_LATENCY = "🟡"  
-CHECK_INTERVAL = 2     
+CHECK_INTERVAL = 1     
 PROBE_TARGETS = [           
     ("1.1.1.1", 53),       
     ("8.8.8.8", 53),        
