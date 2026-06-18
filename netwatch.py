@@ -7,7 +7,7 @@ import rumps
 from datetime import datetime
 
 APP_NAME = "NetWatch"
-VERSION = "1.1.0"
+VERSION = "1.1.1"
 ICON_UNKNOWN = "🌐"        
 ICON_ONLINE = "🟢"       
 ICON_OFFLINE = "🔴"       

@@ -34,7 +34,7 @@ Edit the constants near the top of `netwatch.py`:
 
 | Setting | Default | Meaning |
 | --- | --- | --- |
-| `CHECK_INTERVAL` | `5` | Seconds between checks |
+| `CHECK_INTERVAL` | `1` | Seconds between checks |
 | `FAIL_THRESHOLD` | `2` | Consecutive failures before "disconnected" (debounce) |
 | `OK_THRESHOLD` | `1` | Consecutive successes before "connected" |
 | `PROBE_TARGETS` | Cloudflare/Google/Quad9 | Hosts tried in order; offline only if all fail |
