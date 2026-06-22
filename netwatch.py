@@ -30,7 +30,6 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 SOUND_PATH = os.path.join(SCRIPT_DIR, "assets", "ping.mp3")
 LOG_PATH = os.path.expanduser("~/Library/Logs/NetWatch.log")
 def log_event(message):
-    """Append a timestamped line to the outage log (best effort)."""
     ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     try:
         os.makedirs(os.path.dirname(LOG_PATH), exist_ok=True)
@@ -41,11 +40,6 @@ def log_event(message):
 
 
 def probe():
-    """Try each target in PROBE_TARGETS until one connects.
-
-    Returns (ok, latency_ms). Online (and latency) is reported from the first
-    target that responds; only when every target fails is it considered offline.
-    """
     for host, port in PROBE_TARGETS:
         start = time.monotonic()
         try:
@@ -58,7 +52,6 @@ def probe():
 
 
 def format_duration(seconds):
-    """Human-readable duration like '5s', '2m 13s', '1h 4m'."""
     seconds = int(round(seconds))
     if seconds < 60:
         return f"{seconds}s"
@@ -70,7 +63,6 @@ def format_duration(seconds):
 
 
 def play_sound():
-    """Play the ping sound asynchronously via macOS `afplay`."""
     if not os.path.exists(SOUND_PATH):
         return
     try:
@@ -112,7 +104,6 @@ class NetWatchApp(rumps.App):
         self.muted = not self.muted
         sender.state = 1 if self.muted else 0
     def open_log(self, _sender):
-        """Open the outage log in the default app (create it if needed)."""
         if not os.path.exists(LOG_PATH):
             log_event("(log created)")
         try:
@@ -120,7 +111,6 @@ class NetWatchApp(rumps.App):
         except OSError:
             pass
     def clear_log(self, _sender):
-        """Delete the log file if it exists to clear the history."""
         try:
             if os.path.exists(LOG_PATH):
                 os.remove(LOG_PATH)  
@@ -130,7 +120,6 @@ class NetWatchApp(rumps.App):
         except OSError:
             rumps.notification(APP_NAME, "Error", "Could not clear the log file.")
     def check(self, _timer=None):
-        """Called on each tick: probe network, apply debounce, update state."""
         ok, self.latency_ms = probe()
         if ok and self.latency_ms is not None and self.latency_ms > LATENCY_WARN_MS:
             self._slow_count += 1
@@ -149,7 +138,6 @@ class NetWatchApp(rumps.App):
         self.update_display()
 
     def set_online(self, online):
-        """Update connectivity state and alert on a real transition."""
         was = self.online
         self.online = online
 
@@ -177,7 +165,6 @@ class NetWatchApp(rumps.App):
             self.alert("Network disconnected", "Your connection just dropped.")
 
     def update_display(self):
-        """Pick the menu bar icon + status text by precedence."""
         now = time.monotonic()
         self._transitions = [t for t in self._transitions if now - t <= FLAP_WINDOW]
         flaps = len(self._transitions)
@@ -210,7 +197,6 @@ class NetWatchApp(rumps.App):
             self.last_outage_item.title = f"Last outage: {format_duration(self.last_outage)}"
 
     def alert(self, title, message):
-        """Play sound + show a notification for a status change."""
         if not self.muted:
             play_sound()
         try:
