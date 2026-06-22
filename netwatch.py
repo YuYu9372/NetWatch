@@ -203,3 +203,5 @@ class NetWatchApp(rumps.App):
             pass
 if __name__ == "__main__":
     NetWatchApp().run()
+
+# 1.1.3
