@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 import os
 import socket
 import subprocess
@@ -49,7 +48,6 @@ def probe():
         except OSError:
             continue
     return False, None
-
 
 def format_duration(seconds):
     seconds = int(round(seconds))
