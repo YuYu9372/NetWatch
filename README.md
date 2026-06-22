@@ -50,6 +50,7 @@ The alert sound is `assets/ping.mp3`. To change it, replace that file
 
 ## Version
 
+- 1.1.3 - change the offline icon back.
 - 1.1.0 — multiple probe targets, outage duration on reconnect, and an outage log. Also fixed some issue :D
 - 1.0.2 — faster disconnect detection; debounce 🟡 so it no longer flashes at cutoff.
 - 1.0.1 — add 🟠 unstable (flapping) and 🟡 high-latency states.
