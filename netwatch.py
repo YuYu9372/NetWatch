@@ -6,7 +6,7 @@ import rumps
 from datetime import datetime
 
 APP_NAME = "NetWatch"
-VERSION = "1.1.1"
+VERSION = "1.1.4"
 ICON_UNKNOWN = "🌐"        
 ICON_ONLINE = "🟢"       
 ICON_OFFLINE = "🔴"       
@@ -204,4 +204,3 @@ class NetWatchApp(rumps.App):
 if __name__ == "__main__":
     NetWatchApp().run()
 
-# 1.1.3
