@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>CFBundleDevelopmentRegion</key>
+  <string>en</string>
+  <key>CFBundleExecutable</key>
+  <string>NetWatch</string>
+  <key>CFBundleIdentifier</key>
+  <string>dev.yu.NetWatch</string>
+  <key>CFBundleInfoDictionaryVersion</key>
+  <string>6.0</string>
+  <key>CFBundleName</key>
+  <string>NetWatch</string>
+  <key>CFBundlePackageType</key>
+  <string>APPL</string>
+  <key>CFBundleShortVersionString</key>
+  <string>2.0.0</string>
+  <key>CFBundleVersion</key>
+  <string>2.0.0</string>
+  <key>NSLocationUsageDescription</key>
+  <string>NetWatch needs Location access only so macOS shows your Wi-Fi network name.</string>
+  <key>NSLocationWhenInUseUsageDescription</key>
+  <string>NetWatch needs Location access only so macOS shows your Wi-Fi network name.</string>
+  <key>LSMinimumSystemVersion</key>
+  <string>11.0</string>
+  <key>LSUIElement</key>
+  <true/>
+  <key>NSHumanReadableCopyright</key>
+  <string>Copyright © 2026 YU</string>
+</dict>
+</plist>
